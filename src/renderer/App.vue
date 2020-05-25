@@ -8,7 +8,7 @@
              default-first-option
              placeholder="请选择访问地址"
              clearable
-              v-show="showSelect">
+            v-show="showSelect">
              <el-option
              v-for="item in options"
              :key="item.value"
@@ -18,7 +18,7 @@
              </el-option>
              </el-select>
               <span slot="footer" class="dialog-footer">
-    <el-button type="primary" @click="selectChanged" size="mini">确 定</el-button>
+    <el-button type="primary" @click="selectChanged" size="mini" @keyup.enter="selectChanged">确 定</el-button>
   </span>
   </el-dialog>
     <iframe id="myframe" :src="iframeSrc" width="100%" height="100%" scrolling="no" frameborder="0">
@@ -43,9 +43,6 @@ export default {
       }, {
         value: 'https://www.baidu.com',
         label: '百度'
-      }, {
-        value: 'https://www.singkek.club',
-        label: '新客'
       }],
       urlVal: 'http://10.85.40.105:8081/chis/index'
     }
@@ -111,6 +108,23 @@ export default {
       document.getElementById('myframe').contentWindow.location.reload(true)
     }
   },
+  watch: {
+    iframeSrc () {
+      const iframe = document.querySelector('#myframe')
+      // 处理兼容行问题
+      if (iframe.attachEvent) {
+        iframe.attachEvent('onload', function () {
+        // iframe加载完毕以后执行操作
+          document.title = document.getElementById('myframe').contentWindow.document.title
+        })
+      } else {
+        iframe.onload = function () {
+        // iframe加载完毕以后执行操作
+          document.title = document.getElementById('myframe').contentWindow.document.title
+        }
+      }
+    }
+  },
   created () {
     const _this = this
     if (typeof (Storage) !== 'undefined') {
@@ -118,11 +132,13 @@ export default {
         _this.iframeSrc = sessionStorage.getItem('iframeSrc')
         _this.showSelect = false
       } else {
+        _this.iframeSrc = _this.urlVal
         _this.showSelect = true
       }
     } else {
       console.log('抱歉！您的浏览器不支持 Web Storage ...')
     }
+
     ipcRenderer.on('showSelect', (event, arg) => {
       _this.searchUrl()
     })

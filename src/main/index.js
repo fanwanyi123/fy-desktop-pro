@@ -19,7 +19,6 @@ let mainWindow
 const winURL = process.env.NODE_ENV === 'development'
   ? `http://localhost:9080`
   : `file://${__dirname}/index.html`
-
 function createWindow () {
   /**
      * Initial window options
@@ -28,8 +27,9 @@ function createWindow () {
     height: 900,
     width: 1300,
     minWidth: 1000,
+    minHeight: 700,
     show: false,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     maximizable: true,
     minimizable: true,
     resizable: true,
@@ -115,7 +115,7 @@ let dockMenu = Menu.buildFromTemplate([{
   label: '查看',
   submenu: [ {
     label: '系统选择',
-    accelerator: 'Ctrl+B',
+    accelerator: 'F1',
     click: function (item, focusedWindow) {
       if (focusedWindow) {
         mainWindow.webContents.send('showSelect', '1')
@@ -132,12 +132,11 @@ let dockMenu = Menu.buildFromTemplate([{
     }
   }, {
     label: '切换开发者工具',
-    enabled: false,
     accelerator: (function () {
       if (process.platform === 'darwin') {
         return 'Alt+Command+I'
       } else {
-        return 'Ctrl+Shift+I'
+        return 'Ctrl+I'
       }
     })(),
     click: function (item, focusedWindow) {
@@ -182,7 +181,7 @@ let dockMenu = Menu.buildFromTemplate([{
   submenu: [{
     label: '学习更多',
     click: function () {
-      electron.shell.openExternal('http://electron.atom.io')
+      electron.shell.openExternal('https://www.singkek.club')
     }
   }]
 }])
