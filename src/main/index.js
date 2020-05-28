@@ -16,6 +16,9 @@ if (process.env.NODE_ENV !== 'development') {
 }
 
 let mainWindow
+const clearObj = {
+  storages: ['appcache', 'filesystem', 'indexdb', 'localstorage', 'shadercache', 'websql', 'serviceworkers', 'cachestorage']
+}
 const winURL = process.env.NODE_ENV === 'development'
   ? `http://localhost:9080`
   : `file://${__dirname}/index.html`
@@ -128,6 +131,15 @@ let dockMenu = Menu.buildFromTemplate([{
     click: function (item, focusedWindow) {
       if (focusedWindow) {
         mainWindow.webContents.send('reloadIframe', true)
+      }
+    }
+  },
+  {
+    label: '清除缓存数据',
+    accelerator: 'CmdOrCtrl+Shift+Delete',
+    click: (item, focusedWindow) => {
+      if (focusedWindow) {
+        focusedWindow.webContents.session.clearStorageData(clearObj)
       }
     }
   }, {

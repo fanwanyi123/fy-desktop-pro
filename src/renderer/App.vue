@@ -1,49 +1,86 @@
 <template>
-    <div id="app" >
-        <el-dialog title="请选择访问地址" :visible.sync="showSelect" :close-on-click-modal="false" :show-close="false" :center="true">
-             <el-select
-             v-model="urlVal"
-             filterable
-             allow-create
-             default-first-option
-             placeholder="请选择访问地址"
-             clearable
-            v-show="showSelect">
-             <el-option
-             v-for="item in options"
-             :key="item.value"
-             :label="item.label"
-             :value="item.value"
-              v-show="showSelect">
-             </el-option>
-             </el-select>
-              <span slot="footer" class="dialog-footer">
-    <el-button type="primary" @click="selectChanged" size="mini" @keyup.enter="selectChanged">确 定</el-button>
-  </span>
-  </el-dialog>
-    <iframe id="myframe" :src="iframeSrc" width="100%" height="100%" scrolling="no" frameborder="0">
-     </iframe>
- </div>
+  <div id="app">
+    <el-dialog title="系统选择"
+               :visible.sync="showSelect"
+               :close-on-click-modal="false"
+               :show-close="false"
+               :center="true"
+               :modal='false'
+               width="30%"
+               v-dialogDrag>
+      <el-select v-model="urlVal"
+                 filterable
+                 allow-create
+                 default-first-option
+                 placeholder="可输入访问网址"
+                 clearable
+                 v-show="showSelect">
+        <el-option v-for="item in options"
+                   :key="item.value"
+                   :label="item.label"
+                   :value="item.value"
+                   v-show="showSelect">
+        </el-option>
+      </el-select>
+      <span slot="footer"
+            class="dialog-footer">
+        <el-button type="primary"
+                   @click="selectChanged"
+                   size="mini"
+                   @keyup.enter="selectChanged" :loading="loadingIframe">确 定</el-button>
+      </span>
+    </el-dialog>
+    <iframe id="myframe"
+            :src="iframeSrc"
+            width="100%"
+            height="100%"
+            scrolling="no"
+            frameborder="0"
+            name="myIframe">
+    </iframe>
+    <login-cache :login-cache-dialog="showLoginCacheDialog" :current-user="currentUser"></login-cache>
+    <drop-menu v-show="dropVisible" :style="{left:left+'px',top:top+'px'}"></drop-menu>
+  </div>
 </template>
 
 <script>
 import { ipcRenderer } from 'electron'
-import {mapState} from 'vuex'
+import { mapState } from 'vuex'
+import loginCache from '@/views/loginCache'
+import dropMenu from '@/components/dropDown/menu'
 export default {
   name: 'app',
+  components: {
+    loginCache,
+    dropMenu
+  },
   data () {
     return {
       showSelect: true,
       top: 0,
       left: 0,
+      dropVisible: false,
       iframeSrc: '',
-      options: [{
-        value: 'http://10.85.40.105:8081/chis/index',
-        label: '甘肃省基层医疗卫生信息系统'
-      }, {
-        value: 'https://www.baidu.com',
-        label: '百度'
-      }],
+      loadTimeSet: '',
+      currentIframeTitle: '',
+      currentUser: {},
+      isIframeLoadedTimeOut: false,
+      loadingIframe: false,
+      showLoginCacheDialog: false,
+      options: [
+        {
+          value: 'http://10.85.40.105:8081/chis/index',
+          label: '甘肃省基层医疗卫生信息系统'
+        },
+        {
+          value: 'https://www.baidu.com',
+          label: '百度'
+        },
+        {
+          value: 'http://127.0.0.1:8081/chis/index',
+          label: '邹城市基层医疗卫生信息系统'
+        }
+      ],
       urlVal: 'http://10.85.40.105:8081/chis/index'
     }
   },
@@ -51,9 +88,19 @@ export default {
     ...mapState('User', ['userInfo'])
   },
   methods: {
+    cacheLogin (params) {
+      this.showLoginCacheDialog = true
+      this.currentUser = params
+    },
+    getCacheLoginInfo (params) {
+      console.log(params)
+      this.top = params.positionY - 40
+      this.left = params.positionX - 10
+      this.dropVisible = true
+    },
     searchUrl () {
       const _this = this
-      if (typeof (Storage) !== 'undefined') {
+      if (typeof Storage !== 'undefined') {
         if (sessionStorage.getItem('iframeSrc')) {
           _this.showSelect = !_this.showSelect
         } else {
@@ -62,23 +109,10 @@ export default {
       } else {
         console.log('抱歉！您的浏览器不支持 Web Storage ...')
       }
-    //   const _this = this
-    //   this.$prompt('请输入访问地址', '提示', {
-    //     confirmButtonText: '确定',
-    //     inputValue: 'https://www.baidu.com',
-    //     cancelButtonText: '取消'
-    //   }).then(({value}) => {
-
-    //   }).catch(() => {
-    //     _this.$message({
-    //       type: 'info',
-    //       message: '默认跳转到百度'
-    //     })
-    //     _this.iframeSrc = 'https://www.baidu.com'
-    //   })
     },
     selectChanged () {
       const _this = this
+      this.loadingIframe = false
       if (_this.urlVal == null || _this.urlVal.length === 0) {
         _this.$message({
           type: 'info',
@@ -94,40 +128,94 @@ export default {
             message: '请输入正确的网址'
           })
         } else {
-          _this.iframeSrc = _this.urlVal
-          this.showSelect = false
-          if (typeof (Storage) !== 'undefined') {
-            sessionStorage.setItem('iframeSrc', _this.urlVal)
+          if (_this.iframeSrc === _this.urlVal) {
+            _this.refreshFrame()
+            _this.searchUrl()
           } else {
-            console.log('抱歉！您的浏览器不支持 Web Storage ...')
+            _this.loadingIframe = true
+            _this.iframeSrc = _this.urlVal
+            if (typeof Storage !== 'undefined') {
+              sessionStorage.setItem('iframeSrc', _this.urlVal)
+            } else {
+              console.log('抱歉！您的浏览器不支持 Web Storage ...')
+            }
           }
         }
       }
     },
     refreshFrame () {
       document.getElementById('myframe').contentWindow.location.reload(true)
+    },
+    doAfterIframeLoaded () {
+      this.currentIframeTitle = document.getElementById('myframe').contentWindow
+        .document.title
     }
   },
   watch: {
-    iframeSrc () {
-      const iframe = document.querySelector('#myframe')
-      // 处理兼容行问题
-      if (iframe.attachEvent) {
-        iframe.attachEvent('onload', function () {
-        // iframe加载完毕以后执行操作
-          document.title = document.getElementById('myframe').contentWindow.document.title
+    isIframeLoadedTimeOut () {
+      if (this.currentIframeTitle === '') {
+        this.$notify.error({
+          title: '错误',
+          message: '该系统无法连接，请切换其他系统'
         })
-      } else {
-        iframe.onload = function () {
-        // iframe加载完毕以后执行操作
-          document.title = document.getElementById('myframe').contentWindow.document.title
-        }
+        this.showSelect = true
+        this.loadingIframe = false
+        clearInterval(this.loadTimeSet)
       }
+    },
+    currentIframeTitle () {
+      if (this.currentIframeTitle !== '') {
+        document.title = this.currentIframeTitle
+        this.showSelect = false
+        this.loadingIframe = false
+        clearInterval(this.loadTimeSet)
+      }
+    },
+    iframeSrc: {
+      handler (newVal) {
+        const iframe = document.querySelector('#myframe')
+        // 处理兼容行问题
+        const _this = this
+        var iframeLoadTimeout = setTimeout(function () {
+          _this.isIframeLoadedTimeOut = true
+        }, 10000)
+        if (iframe.attachEvent) {
+          iframe.attachEvent('onload', function () {
+          // iframe加载完毕以后执行操作
+            clearTimeout(iframeLoadTimeout)
+          })
+        } else {
+          iframe.onload = function () {
+          // iframe加载完毕以后执行操作
+            clearTimeout(iframeLoadTimeout)
+          }
+        }
+        this.loadTimeSet = setInterval(function () {
+          _this.doAfterIframeLoaded()
+        }, 1000)
+      },
+      deep: true
     }
+  },
+  mounted () {
+    const _this = this
+    window.addEventListener('message', event => {
+      // 根据上面制定的结构来解析iframe内部发回来的数据
+      const data = event.data
+      switch (data.cmd) {
+        case 'cacheLoginInfo':
+          _this.cacheLogin(data.params)
+          break
+        case 'getCacheLoginInfo':
+          _this.getCacheLoginInfo(data.params)
+          break
+      }
+    })
   },
   created () {
     const _this = this
-    if (typeof (Storage) !== 'undefined') {
+    this.loadingIframe = true
+    if (typeof Storage !== 'undefined') {
       if (sessionStorage.getItem('iframeSrc')) {
         _this.iframeSrc = sessionStorage.getItem('iframeSrc')
         _this.showSelect = false
@@ -150,66 +238,65 @@ export default {
 </script>
 
 <style lang="scss">
-    /* CSS */
-    html,
-    body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        font-family: arial, 'Hiragino Sans GB', 'Microsoft YaHei',
-        'WenQuanYi Micro Hei', sans-serif;
-        background: white;
-    }
+/* CSS */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: arial, 'Hiragino Sans GB', 'Microsoft YaHei',
+    'WenQuanYi Micro Hei', sans-serif;
+  background: white;
+}
 
-    * {
-        box-sizing: border-box;
-    }
+* {
+  box-sizing: border-box;
+}
 
-    #app {
-        height: 100%;
-        -webkit-app-region: no-drag;
-        background-color: #2B2B2B;
-        color: wheat;
-        overflow: hidden;
-    }
+#app {
+  height: 100%;
+  -webkit-app-region: no-drag;
+  background-color: #2b2b2b;
+  color: wheat;
+  overflow: hidden;
+}
 
-    ::-webkit-scrollbar-track-piece {
-        background-color: #fff;
-        -webkit-border-radius: 1em;
-        -moz-border-radius: 1em;
-        border-radius: 1em;
-    }
+::-webkit-scrollbar-track-piece {
+  background-color: #fff;
+  -webkit-border-radius: 1em;
+  -moz-border-radius: 1em;
+  border-radius: 1em;
+}
 
-    /*滚动条的宽度*/
-    ::-webkit-scrollbar {
-        width: 8px;
-    }
+/*滚动条的宽度*/
+::-webkit-scrollbar {
+  width: 8px;
+}
 
-    /*滚动条的设置*/
-    ::-webkit-scrollbar-thumb {
-        background-color: #45484a;
-        background-clip: padding-box;
-        -webkit-border-radius: 1em;
-        -moz-border-radius: 1em;
-        border-radius: 1em;
-    }
-    .el-select{
-        width: 100%;
-    }
-    .el-dialog{
-        width: 30% !important;
-    }
-    .el-dialog__body,.el-dialog__footer{
-        background-color: #3C3F41 !important;
-    }
-    .el-message-box{
-        background-color: #3C3F41 !important;
-        border: 0 !important;
-        .el-message-box__content{
-            color: wheat;
-        }
-        .el-message-box__header{
-            background-color: whitesmoke;
-        }
-    }
+/*滚动条的设置*/
+::-webkit-scrollbar-thumb {
+  background-color: #45484a;
+  background-clip: padding-box;
+  -webkit-border-radius: 1em;
+  -moz-border-radius: 1em;
+  border-radius: 1em;
+}
+.el-select {
+  width: 100%;
+}
+.el-dialog__body,
+.el-dialog__footer {
+  color: wheat !important;
+  background-color: #3c3f41 !important;
+}
+.el-message-box {
+  background-color: #3c3f41 !important;
+  border: 0 !important;
+  .el-message-box__content {
+    color: wheat;
+  }
+  .el-message-box__header {
+    background-color: whitesmoke;
+  }
+}
 </style>
