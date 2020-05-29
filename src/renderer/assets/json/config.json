@@ -1,0 +1,17 @@
+{
+	"webConfig": [
+		{
+			"value": "http://10.85.40.105:8081/chis/index",
+			"label": "甘肃省基层医疗卫生信息系统"
+		},
+		{
+			"value": "https://www.baidu.com",
+			"label": "百度"
+		},
+		{
+			"value": "http://127.0.0.1:8081/chis/index",
+			"label": "泰州市基层医疗卫生信息系统"
+		}
+    ],
+    "webDefault" : "http://127.0.0.1:8081/chis/index"
+}

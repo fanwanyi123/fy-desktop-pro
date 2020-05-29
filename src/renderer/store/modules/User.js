@@ -1,39 +1,34 @@
-import {getRequest} from '../../utils/api'
-import {checkIsAdmin} from '../../utils/utils'
-
 let state = {
-  dialogFormVisible: false,
-  userInfo: {}
-}
-let getters = {
-  hasUserInfo: state => state.userInfo.nickname && state.userInfo.nickname !== '未登录',
-  isAdmin: state => checkIsAdmin(state.userInfo.roles)
+  dropVisible: false,
+  showLoginCacheDialog: false,
+  isCached: false
 }
 
+let getters = {
+
+}
 let mutations = {
-  SET_SHOW_LOGIN (state, val) {
-    state.dialogFormVisible = val
+  SHOW_DROP_MENU (state, val) {
+    state.dropVisible = val
   },
-  SET_USER_INFO (state, loadUser) {
-    state.userInfo = loadUser
+  SHOW_LOGIN_CACHE_MENU (state, val) {
+    state.showLoginCacheDialog = val
   },
-  LOGIN_IN (state, user) {
-    state.userInfo = user
-    sessionStorage.setItem('user', JSON.stringify(user))
+  IS_CACHED (state, val) {
+    state.isCached = val
   }
 }
 
 let actions = {
-  setShowLogin ({commit}, val) {
-    commit('SET_SHOW_LOGIN', val)
+  showDropMenu ({ commit }, val) {
+    commit('SHOW_DROP_MENU', val)
   },
-  async logout ({commit}) {
-    let {status} = await getRequest('/fsblog/api/logout')
-    if (status === 200) {
-      sessionStorage.removeItem('user')
-      commit('SET_USER_INFO', {nickname: '未登录'})
-    }
+  showLoginCacheMenu ({ commit }, val) {
+    commit('SHOW_LOGIN_CACHE_MENU', val)
+  },
+  isCached ({ commit }, val) {
+    commit('IS_CACHED', val)
   }
 }
 
-export default {namespaced: true, state, getters, mutations, actions}
+export default { namespaced: true, state, getters, mutations, actions }

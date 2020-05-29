@@ -92,6 +92,15 @@ let dockMenu = Menu.buildFromTemplate([{
   label: '编辑',
   submenu: [
     {
+      label: '系统添加',
+      accelerator: 'Ctrl+I',
+      click: function (item, focusedWindow) {
+        if (focusedWindow) {
+          mainWindow.webContents.send('showSelect', '1')
+        }
+      }
+    },
+    {
       label: '撤销',
       accelerator: 'Ctrl+Z',
       role: 'undo'
@@ -140,6 +149,15 @@ let dockMenu = Menu.buildFromTemplate([{
     click: (item, focusedWindow) => {
       if (focusedWindow) {
         focusedWindow.webContents.session.clearStorageData(clearObj)
+        // 重载之后, 刷新并关闭所有的次要窗体
+        if (focusedWindow.id === 1) {
+          BrowserWindow.getAllWindows().forEach(function (win) {
+            if (win.id > 1) {
+              win.close()
+            }
+          })
+        }
+        focusedWindow.reload()
       }
     }
   }, {
@@ -148,7 +166,7 @@ let dockMenu = Menu.buildFromTemplate([{
       if (process.platform === 'darwin') {
         return 'Alt+Command+I'
       } else {
-        return 'Ctrl+I'
+        return 'F12'
       }
     })(),
     click: function (item, focusedWindow) {
@@ -191,7 +209,7 @@ let dockMenu = Menu.buildFromTemplate([{
   label: '帮助',
   role: 'help',
   submenu: [{
-    label: '学习更多',
+    label: '在线文档',
     click: function () {
       electron.shell.openExternal('https://www.singkek.club')
     }

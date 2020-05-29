@@ -8,27 +8,20 @@
                :modal='false'
                width="30%"
                v-dialogDrag>
-      <el-select v-model="urlVal"
+      <el-select v-model="iframeSrc"
                  filterable
-                 allow-create
                  default-first-option
-                 placeholder="可输入访问网址"
+                 placeholder="请选择访问网址"
                  clearable
-                 v-show="showSelect">
-        <el-option v-for="item in options"
+                 v-show="showSelect"
+                 @change="selectChange">
+        <el-option v-for="item in webOptions"
                    :key="item.value"
                    :label="item.label"
                    :value="item.value"
                    v-show="showSelect">
         </el-option>
       </el-select>
-      <span slot="footer"
-            class="dialog-footer">
-        <el-button type="primary"
-                   @click="selectChanged"
-                   size="mini"
-                   @keyup.enter="selectChanged" :loading="loadingIframe">确 定</el-button>
-      </span>
     </el-dialog>
     <iframe id="myframe"
             :src="iframeSrc"
@@ -38,16 +31,17 @@
             frameborder="0"
             name="myIframe">
     </iframe>
-    <login-cache :login-cache-dialog="showLoginCacheDialog" :current-user="currentUser"></login-cache>
-    <drop-menu v-show="dropVisible" :style="{left:left+'px',top:top+'px'}"></drop-menu>
+    <login-cache :current-user="currentUser"></login-cache>
+    <drop-menu :style="{left:left+'px',top:top+'px'}"></drop-menu>
   </div>
 </template>
 
 <script>
 import { ipcRenderer } from 'electron'
-import { mapState } from 'vuex'
 import loginCache from '@/views/loginCache'
 import dropMenu from '@/components/dropDown/menu'
+import config from '@/assets/json/config.json'
+
 export default {
   name: 'app',
   components: {
@@ -59,44 +53,28 @@ export default {
       showSelect: true,
       top: 0,
       left: 0,
-      dropVisible: false,
       iframeSrc: '',
       loadTimeSet: '',
       currentIframeTitle: '',
       currentUser: {},
-      isIframeLoadedTimeOut: false,
-      loadingIframe: false,
-      showLoginCacheDialog: false,
-      options: [
-        {
-          value: 'http://10.85.40.105:8081/chis/index',
-          label: '甘肃省基层医疗卫生信息系统'
-        },
-        {
-          value: 'https://www.baidu.com',
-          label: '百度'
-        },
-        {
-          value: 'http://127.0.0.1:8081/chis/index',
-          label: '邹城市基层医疗卫生信息系统'
-        }
-      ],
-      urlVal: 'http://10.85.40.105:8081/chis/index'
+      loadingIframe: false
     }
   },
   computed: {
-    ...mapState('User', ['userInfo'])
+    webOptions () {
+      return config.webConfig
+    }
   },
   methods: {
     cacheLogin (params) {
-      this.showLoginCacheDialog = true
       this.currentUser = params
+      this.$store.commit('User/SHOW_LOGIN_CACHE_MENU', true)
     },
     getCacheLoginInfo (params) {
-      console.log(params)
       this.top = params.positionY - 40
       this.left = params.positionX - 10
-      this.dropVisible = true
+      this.$store.commit('User/SHOW_DROP_MENU', true)
+      this.$store.commit('User/IS_CACHED', localStorage.length > 0)
     },
     searchUrl () {
       const _this = this
@@ -110,10 +88,10 @@ export default {
         console.log('抱歉！您的浏览器不支持 Web Storage ...')
       }
     },
-    selectChanged () {
+    selectChange () {
       const _this = this
-      this.loadingIframe = false
-      if (_this.urlVal == null || _this.urlVal.length === 0) {
+      document.title = ''
+      if (_this.iframeSrc == null || _this.iframeSrc.length === 0) {
         _this.$message({
           type: 'info',
           message: '内容不能为空!'
@@ -122,23 +100,16 @@ export default {
         // eslint-disable-next-line no-useless-escape
         var Expression = /http(s)?:\/\/([\w-]+\.)+[\w-]+(\/[\w- .\/?%&=]*)?/
         var objExp = new RegExp(Expression)
-        if (!objExp.test(_this.urlVal)) {
+        if (!objExp.test(_this.iframeSrc)) {
           _this.$message({
             type: 'error',
             message: '请输入正确的网址'
           })
         } else {
-          if (_this.iframeSrc === _this.urlVal) {
-            _this.refreshFrame()
-            _this.searchUrl()
+          if (typeof Storage !== 'undefined') {
+            sessionStorage.setItem('iframeSrc', _this.iframeSrc)
           } else {
-            _this.loadingIframe = true
-            _this.iframeSrc = _this.urlVal
-            if (typeof Storage !== 'undefined') {
-              sessionStorage.setItem('iframeSrc', _this.urlVal)
-            } else {
-              console.log('抱歉！您的浏览器不支持 Web Storage ...')
-            }
+            console.log('抱歉！您的浏览器不支持 Web Storage ...')
           }
         }
       }
@@ -147,27 +118,16 @@ export default {
       document.getElementById('myframe').contentWindow.location.reload(true)
     },
     doAfterIframeLoaded () {
-      this.currentIframeTitle = document.getElementById('myframe').contentWindow
-        .document.title
+      this.currentIframeTitle = document.getElementById(
+        'myframe'
+      ).contentWindow.document.title
     }
   },
   watch: {
-    isIframeLoadedTimeOut () {
-      if (this.currentIframeTitle === '') {
-        this.$notify.error({
-          title: '错误',
-          message: '该系统无法连接，请切换其他系统'
-        })
-        this.showSelect = true
-        this.loadingIframe = false
-        clearInterval(this.loadTimeSet)
-      }
-    },
     currentIframeTitle () {
       if (this.currentIframeTitle !== '') {
         document.title = this.currentIframeTitle
         this.showSelect = false
-        this.loadingIframe = false
         clearInterval(this.loadTimeSet)
       }
     },
@@ -177,16 +137,23 @@ export default {
         // 处理兼容行问题
         const _this = this
         var iframeLoadTimeout = setTimeout(function () {
-          _this.isIframeLoadedTimeOut = true
+          if (document.title === '') {
+            _this.$notify.error({
+              title: '错误',
+              message: '该系统无法连接，请切换其他系统'
+            })
+            _this.showSelect = true
+            clearInterval(_this.loadTimeSet)
+          }
         }, 10000)
         if (iframe.attachEvent) {
           iframe.attachEvent('onload', function () {
-          // iframe加载完毕以后执行操作
+            // iframe加载完毕以后执行操作
             clearTimeout(iframeLoadTimeout)
           })
         } else {
           iframe.onload = function () {
-          // iframe加载完毕以后执行操作
+            // iframe加载完毕以后执行操作
             clearTimeout(iframeLoadTimeout)
           }
         }
@@ -212,15 +179,18 @@ export default {
       }
     })
   },
+  beforeDestroy () {
+    window.removeEventListener('message')
+  },
   created () {
     const _this = this
-    this.loadingIframe = true
+    document.title = ''
     if (typeof Storage !== 'undefined') {
       if (sessionStorage.getItem('iframeSrc')) {
         _this.iframeSrc = sessionStorage.getItem('iframeSrc')
         _this.showSelect = false
       } else {
-        _this.iframeSrc = _this.urlVal
+        _this.iframeSrc = config.webDefault
         _this.showSelect = true
       }
     } else {

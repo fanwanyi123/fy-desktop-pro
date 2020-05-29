@@ -1,7 +1,7 @@
 <template>
   <div class="loginCache">
     <el-dialog title="要保存当前账号信息吗"
-               :visible.sync="loginCacheDialog"
+               :visible.sync="showLoginCacheDialog"
                width="20%"
                :modal='false'
                v-dialogDrag
@@ -16,20 +16,25 @@
       </span>
       <span slot="footer"
             class="dialog-footer">
-        <el-button type="primary" size="mini"
-                   @click="cacheLoginInfo">保存</el-button>
-        <el-button @click="loginCacheDialog = false"  size="mini">不保存</el-button>
+        <el-button type="primary"
+                   size="mini"
+                   @click="cacheLoginInfo(true)">保存</el-button>
+        <el-button @click="cacheLoginInfo(false)"
+                   size="mini">不保存</el-button>
       </span>
     </el-dialog>
   </div>
 </template>
 
 <script>
+import { mapState } from 'vuex'
 export default {
   name: 'loginCache',
   props: {
-    loginCacheDialog: Boolean,
     currentUser: Object
+  },
+  computed: {
+    ...mapState('User', ['showLoginCacheDialog'])
   },
   data () {
     return {
@@ -37,13 +42,18 @@ export default {
     }
   },
   methods: {
-    cacheLoginInfo () {
-      if (typeof Storage !== 'undefined') {
-        localStorage.setItem(this.currentUser.userName, this.currentUser.passWord)
-      } else {
-        console.log('抱歉！您的浏览器不支持 Web Storage ...')
+    cacheLoginInfo (param) {
+      if (param) {
+        if (typeof Storage !== 'undefined') {
+          localStorage.setItem(
+            this.currentUser.userName,
+            this.currentUser.passWord
+          )
+        } else {
+          console.log('抱歉！您的浏览器不支持 Web Storage ...')
+        }
       }
-      this.loginCacheDialog = false
+      this.$store.commit('User/SHOW_LOGIN_CACHE_MENU', false)
     }
   }
 }
@@ -61,9 +71,9 @@ export default {
     display: flex;
     justify-content: flex-start;
   }
-  .el-dialog{
-      position: absolute;
-      right: 0;
+  .el-dialog {
+    position: absolute;
+    right: 0;
   }
 }
 </style>
